@@ -1,0 +1,25 @@
+---
+title: "Metapopulation Workflow"
+---
+
+RAMAS is immensely powerful, but seems to require some finesse in setting up the models, and is somewhat unclear as to what parameters need to be set...and when and how. In this tutorial, we walk readers through an example to provide a basis of understanding on how to set up and run analyses in this program.
+
+*Note: This is not an exhaustive tutorial, and there are many settings we skip over because they are not applicable to our study.*
+
+### Overall workflow:
+
+i.  Set RAMAS configurations to increase the size of allowed input raster.
+ii. Prepare spatial information and create habitat layer, determine suitability thresholds.
+iii. Build template Metapop file (template.mp) with demographic information.
+iv. Import habitat layer into Spatial Data and link Spatial Data file to template.mp
+v.  Identify habitat patches
+vi. Export new Metapop file that includes populations based on habitat patches
+vii. Make final edits to pop model, run simulation
+viii. Perform sensitivity analysis and compare results
+ix. Plotting patches and converting ASCII patch file to .tif (R & ArcGIS Pro)
+
+## 1. Edit RAMAS Config Module
+
+1.  To be able to import the entirety of a large raster, you have to change the number of raster cells in the configuration module. In the Maxima tab, the default number of rows and columns (400 rows, 500 columns) is too few, in our case for Mississippi at a 1 km^2^ resolution. Therefore, we changed the map rows and map columns values (in red box in figure below) to slightly higher than the dimensions of our raster (545 rows, 317 columns). RAMAS has a limit of 16,000 cells in both columns and rows. Click save.
+
+![test](images/clipboard-104547776.png)
