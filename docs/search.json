@@ -1,0 +1,23 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Metapopulation Workflow",
+    "section": "",
+    "text": "RAMAS is immensely powerful, but seems to require some finesse in setting up the models, and is somewhat unclear as to what parameters need to be set…and when and how. In this tutorial, we walk readers through an example to provide a basis of understanding on how to set up and run analyses in this program.\nNote: This is not an exhaustive tutorial, and there are many settings we skip over because they are not applicable to our study."
+  },
+  {
+    "objectID": "index.html#edit-ramas-config-module",
+    "href": "index.html#edit-ramas-config-module",
+    "title": "Metapopulation Workflow",
+    "section": "1. Edit RAMAS Config Module",
+    "text": "1. Edit RAMAS Config Module\n\nTo be able to import the entirety of a large raster, you have to change the number of raster cells in the configuration module. In the Maxima tab, the default number of rows and columns (400 rows, 500 columns) is too few, in our case for Mississippi at a 1 km2 resolution. Therefore, we changed the map rows and map columns values (in red box in figure below) to slightly higher than the dimensions of our raster (545 rows, 317 columns). RAMAS has a limit of 16,000 cells in both columns and rows. Click save.\n\n\n\n\ntest"
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "About this site\nThis is the workflow we used to run metapopulation models for deer and wild pigs in Mississippi."
+  }
+]
