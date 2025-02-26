@@ -24,13 +24,13 @@ ix. Plotting patches and converting ASCII patch file to .tif (R & ArcGIS Pro)
 
     ![Maxima tab of CONFIG subprogram](images/Screenshot%202025-01-06%20132701-01.png)
 
-2.  Now we need we save the correct file path so that the changes we made apply when we build the models. Go to the 'Other' tab. At the right of the box that says Data File Path, click on the button with three dots and navigate to the folder where you will be saving your RAMAS Models. Click Save and exit the Configuration module.
+2.  Now we need we save the correct file path so that the changes we made apply when we build the models. Go to the 'Other' tab. At the right of the box that says Data File Path, click on the button with three dots and navigate to the folder where you will be saving your RAMAS Models. Click Save and exit the Configuration module. \*Note: Check the manual if this is not working.
 
     !['Other' tab of CONFIG subprogram](images/Screenshot%202025-01-06%20132952.png)
 
 ## 2. Prepping Raster Files
 
-1.  RAMAS provides the option of imported a pre-made habitat suitability layer (hereafter referred to as 'habitat layer'), or importing individual spatial layers and calculating suitability manually. Here, we built the habitat layer in R and predicted across the study area, and will therefore only need the final predicted layer to import. We will use the `terra` package in program `R` to format the habitat layer and export it as an ASCII (pronounced 'ask · ee'; .asc file extension) file so that it can be read in by RAMAS, though you can also prepare spatial information like this in ArcGIS Pro (ESRI) or other GIS programs.
+RAMAS provides the option of imported a pre-made habitat suitability layer (hereafter referred to as 'habitat layer'), or importing individual spatial layers and calculating suitability manually. Here, we built the habitat layer in R and predicted across the study area, and will therefore only need the final predicted layer to import. We will use the `terra` package in program `R` to format the habitat layer and export it as an ASCII (pronounced 'ask · ee'; .asc file extension) file so that it can be read in by RAMAS, though you can also prepare spatial information like this in ArcGIS Pro (ESRI) or other GIS programs. An example of how a habitat suitability layer could be produced using R is provided below:
 
 ```{r}
 #| eval: false
@@ -42,7 +42,7 @@ library(lme4)
 ms_full <- vect("data/landscape_data/mississippi.shp") 
 
 # Load point locations
-dat <- read_csv("data/location_data/pig_locations.csv")
+dat <- read_csv("data/location_data/gps_locations.csv")
 
 # Load habitat rasters (90x90 m resolution)
 layers <- c("data/habitat1.tif", "data/habitat2.tif")
@@ -52,17 +52,17 @@ layers <- rast(layers)
 rsf <- glmer(used ~ habitat1 + habitat2 + (1|ID), data=dat, 
              family=binomial(link = "logit"))
 
-#### Now we will predict habitat selection across the entire state of Mississippi
+#### Now we will predict habitat selection across the raster layers
 # If you want 95% confidence intervals, skip this part and go to the section below
 pred <- predict(layers, rsf, type="response", re.form = NA)
 
-# Make template raster (what you want the final resolution to be)
+# Make template raster (what you want the final resolution to be - here, we use 1000 m)
 temp_rast <- rast(ext(ms_full), resolution=1000) 
 
 # Resample to resolution of template raster
 pred <- resample(pred, temp_rast)
 
-# Mask and crop so that there are as few extra lines of no data/outside study area as possible (in this case, ms_full is a SpatVector of Mississippi)
+# Mask and crop the predicted output so that there are as few extra lines of no data or data outside the study area as possible using vector information
 pred <- mask(pred, ms_full)
 pred <- crop(pred, ext(ms_full))
 
@@ -83,7 +83,7 @@ writeRaster(pred, "data/predictions/rsf_FINAL.asc", NAflag=-9999)
 #### Predicting habitat suitability with uncertainty 
 # (mean + 95% confidence intervals for predictions)
 
-# We need to change our approach here to obtain uncertainty values. When we are predicting from a binomial GLM/GLMM and include type="response" in predict(), predict() converts the reponse to predicted probabilities. However, if we incluse se.fit=TRUE, this conversion is not done for the standard error values, which are instead returned on the log-odds scale. We deal with this by predicting both the mean predicted value and SE on the log-odds scale, calculate the 95% CI, and then transforming all three values (mean lower CI, upper CI) tothe probability scale.  
+# We need to change our approach here to obtain uncertainty values. When we are predicting from a binomial GLM/GLMM and include type="response" in predict(), predict() converts the reponse to predicted probabilities. However, if we include se.fit=TRUE, this conversion is not done for the standard error values, which are instead returned on the log-odds scale. We deal with this by predicting both the mean predicted value and SE on the log-odds scale, calculate the 95% CI, and then transforming all three values (mean lower CI, upper CI) tothe probability scale.  
 
 # Another issue that we run into is that with large rasters, calculating SE will crash R. A workaround is to generate point locations at the center of each raster cell (in ArcGIS Pro, for example), and then assign the raster values to each point. 
 
@@ -107,7 +107,7 @@ pigs_se <- pigs_se %>% as_tibble() %>%
          uci=boot::inv.logit(fit + (1.96 * se.fit))) %>%
   mutate(fit=boot::inv.logit(fit)) 
 
-# Add calculated/transformed values to the points SpatVector object to associate predictions/uncertainty with spatial locations
+# Add calculated/transformed values to the points vector object to associate predictions/uncertainty with spatial locations
 pts$fit <- pigs_se$fit
 pts$lci <- pigs_se$lci
 pts$uci <- pigs_se$uci
@@ -118,7 +118,7 @@ pts$uci <- pigs_se$uci
 # Write shapefile
 writeVector(pts, "data/landscape_data/pigs_pts_se.shp", overwrite=TRUE)
 
-# After writing the shapefile, open it in ArcGIS and used the Point to Raster tool (in Converstion Tools) to convert the point file to a raster for each column of the pts file. 
+# After writing the shapefile, open it in ArcGIS and used the Point to Raster tool (in Conversion Tools) to convert the point file to a raster for each column of the pts file. 
 
 # Then, read the converted rasters back into R
 pigs_uci <- rast("data/predictions/pigs_glmm_rsf_UpperCI.tif")
@@ -167,14 +167,14 @@ pigs_mean <- classify(pigs_mean, m)
 ## Save mean, LCI, and UCI rasters as .asc files for import into RAMAS
 writeRaster(pigs_uci, "data/predictions/pigs_glmm_rsf_UpperCI.asc",NAflag=-9999, overwrite=TRUE)
 writeRaster(pigs_lci, "data/predictions/pigs_glmm_rsf_LowerCI.asc",NAflag=-9999, overwrite=TRUE)
-writeRaster(pigs_mean, "data/predictions/pigs_glmm_rsf_FINALFINALFINALFINAL.asc",NAflag=-9999, overwrite=TRUE)
+writeRaster(pigs_mean, "data/predictions/pigs_glmm_rsf.asc",NAflag=-9999, overwrite=TRUE)
 # Additionally save mean predictions as .tif for plotting if desired. This raster should be more or less the same as the pred raster, but note that values might be a little different due to scaling
-writeRaster(pigs_mean, "data/predictions/pigs_glmm_rsf_FINALFINALFINALFINAL.tif", overwrite=TRUE)
+writeRaster(pigs_mean, "data/predictions/pigs_glmm_rsf.tif", overwrite=TRUE)
 ```
 
 ## 3. Determine suitability thresholds
 
-1.  Now that we've created a habitat layer, we need to determine the threshold that we will consider "core" habitat. We recommend doing this in the same R session as creation of the habitat layer. Hold on to this value, we will need in RAMAS Spatial Data.
+Now that we've created a habitat layer, we need to determine the threshold that we will consider "core" habitat. We recommend doing this in the same R session as creation of the habitat layer. Hold on to this value, we will need in RAMAS Spatial Data. An example of how this could be extracted is:
 
 ```{r}
 #| eval: false
@@ -226,8 +226,8 @@ res %>% slice_max(TSS)
 3.  Start with General Information.
     -   Add a **title** (e.g., 'Pigs template') and optionally any **comments**.
     -   Leave Map features blank.
-    -   Change the **number of replications** - this is the number of times the population will be simulated, and if incorporating stochasticity there should be multiple replications, but if no stochasticity will be incorporated into the final model, leaves as 1.
-    -   Set the **Duration** (number of time steps) you wish the simulation to be projected.
+    -   Change the **number of replications** - this is the number of times the population will be simulated, and if incorporating stochasticity there should be multiple replications, but if no stochasticity will be incorporated into the final model, leaves as 1. We set this to 5000.
+    -   Set the **Duration** (number of time steps) you wish the simulation to be projected. In our case, we projected the population over 10 years.
     -   Enter a value to specify the interval of a **time step**. You can select from the drop-down to change time steps to have values of months, days, or years (default). In our case, we want a timestep equal to 1 year, so we enter 1 in the box. Hit ok to close the menu.
 4.  Next, open the Stages menu. This is where we tell RAMAS about the population structure
     -   **Name:** List the ages or stages that will be included in your population model. It is helpful to indicate sex along with the stage/age name to keep everything organized. For example, we have three stages for both males and females. *Always start listing female stages first, then males stages.* In our pig model, we had three stages for each sex: piglets, yearlings, and adults, so in total we had 6 stages listed in the Stages menu. Click Add to add a stage.
@@ -244,7 +244,7 @@ res %>% slice_max(TSS)
 
     -   **Breeding:** The breeding column is to indicate the *proportion of each class that is physically/physiologically capable of breeding*, *not* *the proportion of individuals that typically breed in a given year* (which should be incorporated into fecundity values). This value ranges 0-1, and any stage with a fecundity should have a value \>0 in the Breeding column. Because pigs can reach sexual maturity by 5 or 6 months, we entered a value of 0.5 for piglets.
 
-    -   Close the Stages menu.
+    -   Click OK to close the Stages menu.
 5.  Open the Sex Structure menu
     -   The Sex Structure menu tells RAMAS how you are modeling populations. The default is a females-only model.
 
@@ -252,7 +252,7 @@ res %>% slice_max(TSS)
 
     -   Because we selected the option with both males and females, we need to specify the number of female stages. As noted in the program, we usually have the same number of male and female stages (but often vital rates may vary between sexes). Here, we had 3 stages for females (pigs, yearlings, and adults) because we had 6 total stages.
 
-    -   We also need to specify the mating system because we have both males and females in our model. We selected polygynous for pigs, and we assume that males can have unlimited partners (i.e., they can mate with any receptive female they come across). Click OK to close the Sex Structure menu.
+    -   We also need to specify the mating system because we have both males and females in our model. We selected polygynous for pigs, and we assume that males can have unlimited partners (i.e., they can mate with any receptive female they come across). Click OK to save and close the Sex Structure menu.
 
         ![Sex structure menu with options selected for wild pigs](images/Screenshot%202025-01-14%20102304-01.png)
 6.  Open the Stage Matrix menu
@@ -266,9 +266,9 @@ res %>% slice_max(TSS)
 
         ![Stage matrix menu for a model including both males and females](images/Screenshot%202025-01-16%20075100.png)
 
-    -   We need to add constraints for RAMAS to accound for vital rates properly. Click on Constraints and then Auto Fill.
+    -   We need to add constraints for RAMAS to account for vital rates properly. Click on Constraints and then Auto Fill and click OK to save and exit.
 
-    -   Click OK to exit the Stage Matrix menu
+    -   Click OK to save and exit the Stage Matrix menu
 7.  Open the Standard Deviation Matrix menu
     -   The standard deviation matrix provides values for each parameter to incorporate demographic stochasticity. This matrix should have stand deviations in the same matrix cells where survival and fecundity were added in the stage matrix, unless it is desired to model stochasticity in only some parameters.
 
@@ -276,8 +276,8 @@ res %>% slice_max(TSS)
 
         ![Auto Fill dialog box of Standard Deviation Matrix menu](images/Screenshot%202025-01-14%20095709.png)
 
-    -   Click OK to close Auto Fill, then OK again to close the Standard Deviation Matrix menu.
-8.  Stochasticity menu: We did not add this to our model because stochasticity was already incorporated as uncertainty in vital rates and we have a relatively stable population of pigs across the state. In other words, we are not trying to model extinction or explosion, so we were OK with accepting the defaults here.
+    -   Click OK to close Auto Fill, then OK again to save and close the Standard Deviation Matrix menu.
+8.  Stochasticity menu: We did not add this to our model because stochasticity was already incorporated as uncertainty in vital rates and we have a relatively stable population of pigs across the state. In other words, we are not trying to model extinction or explosion, so we were OK with accepting the defaults here. However, if you want to incorporate these sorts of dynamics this would be the place to do so.
 9.  Catastrophes menu: The catastrophes menu is for incorporating rare, devastating effects (e.g., hurricane or wildfire). There is the option to specify two catastrophes and control how they affect the population. For our study, our species is not subject to major catastrophic events, so we did not incorporate catastrophes.
 10. Save the metapopulation file (e.g., pigs_template.mp) by clicking on File \> Save. Note that the main screen has been populated with the values you entered (including replications, number of stages, density dependence, etc.). Close the Metapopulation subprogram.
 
@@ -297,7 +297,7 @@ res %>% slice_max(TSS)
 4.  Go to Model \> Input maps to load habitat layers
 
     -   Click **Add**, which will population the 'Maps:' section with 'Map 1'.
-    -   You can change the **name** of Map 1 to something more informative, such as PigFinal
+    -   You can change the **name** of Map 1 to something more informative, such as PigMeanHSI
     -   In the line that says **File:**, click on the button with three dots and navigate to the folder with your habitat layer. You may need change the filetype (in the bottom right )to All files (\**.\**) in order to see available .asc files. Select the habitat layer you want to import and click OK.
     -   **Format** will automatically population (it should read ARC/INFO if you've read in an ASCII file).
     -   Click on the **View** button (bottom left corner of Input Maps menu). This will show you a preview of your habitat layer, and it will give you a warning if the entire raster is unable to load. In that case, you will need to go back and readjust the RAMAS configuration to increase the number of rows or columns.
@@ -308,7 +308,7 @@ res %>% slice_max(TSS)
 
     -   This section controls how RAMAS delineates the patches. It is possible to upload habitat layers and specify a **suitability function** within RAMAS; however, the modeling capabilities are limited. Thus, we imported the raster generated from resource selection modeling, but still need to specify a function for habitat suitability. In this case, it is just the imported layer \* 1. Note that the name of the habitat layer must be in square brackets. Do not include and equal sign (=).
 
-        ![Settings for mapping pig predicted core patches](images/Screenshot%202025-01-28%20155250.png)
+        ![Settings for mapping pig core patches](images/Screenshot%202025-02-26%20095113.png)
 
     -   The **habitat suitability threshold for patches** is the suitability value that RAMAS will use to convert the continuous habitat layer into a binary patch map, while everything below the threshold becomes "matrix", or unsuitable habitat. This should be determined as part of the habitat suitability modeling process in R, or using other criteria.
 
@@ -322,13 +322,13 @@ res %>% slice_max(TSS)
 
     -   There are two tabs: General and Catastrophes. Most of the information will be contained in the General tab.
 
-    -   The first option allows us to specify a function that will determine **carrying capacity** for each patch and the overall study map. RAMAS has four patch variables built in (p. 16): total patch suitability (`ths`), average patch suitability (`ahs`), number of cells in the patch (`noc`), and the length of the patch perimeter (`per`). Thus, these can be used to adjust the population parameters according to patch attributes. The RAMAS manual (p. 28) describes functions that can be used to incorporate these variables (beyond simple mathematics). In our model, we wanted to set the greatest suitability to reflect a density of 8 wild pigs/km^2^, and reduce the density as suitability decreased. Thus, we multiply 8 wild pigs/km^2^ by `ths`. Note: our habitat layer is a 1 km^2^ grid, so we can use 8 wild pigs in the calculation. However, if we had a coarser grid, say 1.5 x 1.5 km (2.25 km^2^), we would need to account for this in density (e.g., 18 pigs per 2.25 km^2^ grid cell).
+    -   The first option allows us to specify a function that will determine **carrying capacity** for each patch and the overall study map. RAMAS has four patch variables built in (p. 16 in the RAMAS user guide): total patch suitability (`ths`), average patch suitability (`ahs`), number of cells in the patch (`noc`), and the length of the patch perimeter (`per`). Thus, these can be used to adjust the population parameters according to patch attributes. The RAMAS manual (p. 28) describes functions that can be used to incorporate these variables (beyond simple mathematics). In our model, we wanted to set the greatest suitability to reflect a density of 8 wild pigs/km^2^, and reduce the density as suitability decreased. Thus, we multiply 8 wild pigs/km^2^ by `ths`. Note: our habitat layer is a 1 km^2^ grid, so we can use 8 wild pigs in the calculation. However, if we had a coarser grid, say 1.5 x 1.5 km (2.25 km^2^), we would need to account for this in density (e.g., 18 pigs per 2.25 km^2^ grid cell).
 
         ![Link to Metapopulation menu for wild pigs in Mississippi](images/Screenshot%202025-02-06%20094916.png)
 
-    -   The **maximum growth** rate (*R~max~)* is a tricky parameter. It represented the maximum finite rate of increase (often represented as 𝜆) for a population, when the population is not experiencing effects of density dependence. This value must be \>1 even if the population being modeled is expected to decrease. We looked for population modeling studies in the literature that estimated 𝜆 and used the highest as a starting point, but note that this has implications for the strength of density dependence when incorporated into a metapopulation model.
+    -   The **maximum growth** rate (*R~max~)* is a tricky parameter. It represented the maximum finite rate of increase (often represented as 𝜆) for a population, when the population is not experiencing effects of density dependence. This value must be \>1 even if the population being modeled is expected to decrease. We looked for population modeling studies in the literature that estimated 𝜆 and used the highest as a starting point, but note that this has implications for the strength of density dependence when incorporated into a metapopulation model. The RAMAS user guide provides some context.
 
-    -   Next, we need to specify an **initial abundance** for each patch. Giving just an integer will assign this value to every patch, regardless of size or carrying capacity. RAMAS allows for functions to determine initial abundance, similar to carrying capacity, to adjust for overall patch suitability, size, etc. The default given in the manual is `noc` \* 1.2 - `per` \* 0.1, which incorporates the number of cells and the length of the patch perimeter in determining the initial abundance. We edited this function to be (`noc` \* density \* `ahs`) - `per` \* 0.1, where density is 8 wild pigs/km^2^.
+    -   Next, we need to specify an **initial abundance** for each patch. Giving just an integer will assign this value to every patch, regardless of size or carrying capacity. RAMAS allows for functions to determine initial abundance, similar to carrying capacity, to adjust for overall patch suitability, size, etc. The default given in the manual is `noc` \* 1.2 - `per` \* 0.1, which incorporates the number of cells and the length of the patch perimeter in determining the initial abundance. We edited this function to be (`noc` \* 8 \* `ahs`) - `per` \* 0.1, where 8 is the density of wild pigs/km^2^.
 
     -   Similarly, we can adjust vital rates according to suitability values in each patch by specifying functions in the **Relative fecundity** and **Relative survival** options. For this model, we maintained all survival and fecundities equal to 1 (i.e., all the same).
 
@@ -338,18 +338,18 @@ res %>% slice_max(TSS)
 
     -   Before closing the menu, one can specify local multipliers and probabilities for catastrophes under the **Catastrophes** tab. We did not have any catastrophes that needed to be adjusted spatially, so we left these blank.
 
-    -   Click OK to close the window.
+    -   Click OK to save and close the window.
 
 7.  Go to Model \> Default population
 
     -   There are three tabs in the Default population menu: General, Density Dependence, and Catastrophes. Again, we left the Catastrophes tab blank, as we were not incorporating these into our model.
-    -   The General tab shows several parameters, but most are calculated by RAMAS or specified in the Link to Metapopulation tab. Only the **Local threshold** parameter is available for editing, which can be used to specify patches that are included in the summation of abundance when running the metapopulation model. We set this to 5.
-    -   The Density Dependence tab will allow us to assign parameters for density dependence. We set the **Density dependence type** to Scramble so that this would be applied to all populations generated with patches. We also incorporated some environmental stochasticity by setting **Standard deviation of K** to 1000. We left the remaining parameters as default (usually 0).
+    -   The General tab shows several parameters, but most are calculated by RAMAS or specified in the Link to Metapopulation tab. Only the **Local threshold** parameter is available for editing, which can be used to specify patches that are included in the summation of abundance when running the metapopulation model. We set this to 5, assuming that most populations would need more individuals to persist.
+    -   The Density Dependence tab will allow us to assign parameters for density dependence. We set the **Density dependence type** to Scramble so that this would be applied to all populations generated with patches. We also incorporated some environmental stochasticity by setting **Standard deviation of K** to 1000, but can be changed to include more or less stochasticity. We left the remaining parameters as default (usually 0).
     -   Click OK to save and exit this menu.
 
 8.  Go to Model \> Dispersal
 
-    -   The Dispersal menu will allow us to specify a function that controls how far animals disperse between habitat patches, which will calculate dispersal rates for the metapopulation. There are four parameters: ***a***, ***b***, ***c***, and ***D~max~***. It is unclear what these all represent, but the manual (p. 31) recommends setting ***a*** and ***c*** to 1 so that the dispersal function simplifies to a negative exponential. We then specified ***b*** as 5 km, the average natal dispersal fo wild pigs, and ***D~max~*** as 65 km, which we determined from the literature was on the upper limit of wild pig dispersal distances.
+    -   The Dispersal menu will allow us to specify a function that controls how far animals disperse between habitat patches, which will calculate dispersal rates for the metapopulation. There are four parameters: ***a***, ***b***, ***c***, and ***D~max~***. It is unclear what these all represent, but the manual (p. 31) recommends setting ***a*** and ***c*** to 1 so that the dispersal function simplifies to a negative exponential. We then specified ***b*** as 5.0 to represent 5 km, the average natal dispersal for wild pigs, and ***D~max~*** as 65 km, which we determined from the literature was on the upper limit of wild pig dispersal distances.
     -   The View Function button will only show results after RAMAS has found $\geq$ 2 patches.
     -   Click OK to save and close the menu.
 
@@ -377,9 +377,9 @@ res %>% slice_max(TSS)
 
 ## 7. Export Results and Metapop file from Spatial Data module
 
-1.  It is helpful to export two things after calculating the patches: patch map (helpful for visualizations/manuscript figures) and a Metapopulation file (necessary for continuing the process). Both of these can be accomplished by going to the File menu in the main Spatial Data program screen.
-    -   Go to File \> **Save RAMAS Metapop file...** Navigate to the desired folder and provide a file name, then click Save.
-    -   Go to File \> **Export patch map...** Navigate to the desired folder and provide a file name, then click Save. Note that this will write an ASCII (.asc) file, that can be read into ArcGIS Pro and R and converted to a .tif or other file format.
+1.  It is helpful to export two things after calculating the patches: patch map (helpful for visualizations/manuscript figures) and a Metapopulation file (necessary for continuing the process). Both of these can be accomplished by going to:
+    -   File \> **Save RAMAS Metapop file...** Navigate to the desired folder and provide a file name, then click Save.
+    -   File \> **Export patch map...** Navigate to the desired folder and provide a file name, then click Save. Note that this will write an ASCII (.asc) file, that can be read into ArcGIS Pro and R and converted to a .tif or other file format.
 
 ![Exporting patch map and Metapop file from Spatial Data](images/Screenshot%202024-12-16%20105241.png)
 
@@ -404,7 +404,7 @@ res %>% slice_max(TSS)
 
     -   When incorporating density dependence, there will sometimes be a warning message that the stage matrix is possibly inconsistent. This is not an error, and may occur when density dependence adjust the growth rate so that it is different from what would be due to the population matrix alone. Click the red question mark button for the Help file for more information.
 
-    -   After the simulation has completed, close the window.
+    -   After the simulation has completed, close the window by clicking the X in the upper right-hand corner. There is no option to save here, the simulation results can be saved from the main Metapopulation program window. If incorporating this simulation in a sensitivity analysis below, the Sensitivity Analysis program will re-run the simulations.
 
 3.  Results can be viewed under the Results tab, similar to how we viewed the results from RAMAS Spatial Data.
 
@@ -477,11 +477,9 @@ res %>% slice_max(TSS)
 
         ![Sensitivity analysis for wild pigs in MS](images/Screenshot%202025-02-06%20121519.png)
 
-    -   Click OK to close the window.
+    -   Click OK to save and close the window.
 
-3.  You can also set up different scenarios in Metapopulation, and load them into Sensitivity Analysis by going to Models \> Manual and selecting the desired files.
-
-4.  Go to Simulation \> Run
+3.  Go to Simulation \> Run
 
     -   RAMAS will give you a dialog box specifying which scenario will be saved to which file. This cannot be edited. Click OK to run the simulations. It will open new simulation windows as the models run.
 
@@ -489,19 +487,19 @@ res %>% slice_max(TSS)
 
     -   When the simulations have finished, another new window will open, again stating the new files. Click OK.
 
-5.  Results cannot be viewed in the Sensitivity analysis program. Close this.
+4.  Results cannot be viewed in the Sensitivity analysis program. Close this.
 
 ## 10. Comparing simulation results
 
 1.  The RAMAS Comparison of Results subprogram allows you to import models from the Metapopulation subprogram to visualize and compare results of different scenarios. The comparison of results subprogram can take any Metapop model, not necessarily from sensitivity analysis.
 
-2.  If you open the Comparison of Results subprogram after running a sensitivity analysis, it should automatically load the models generated by Sensitivity Analysis. However, you can add files manually (e.g., if just comparing different models that were created using Metapopulation and not Sensitivity Analysis). Click on the Open symbol to select files. You will need to click Add to navigate and select models to add.
+2.  If you open the Comparison of Results subprogram after running a sensitivity analysis, it should automatically load the models generated by Sensitivity Analysis. However, you can add files manually (e.g., if just comparing different models that were created using Metapopulation and not Sensitivity Analysis, such as core, marginal, and highly marginal patch models). Click on the Open symbol to select files. You will need to click Add to navigate and select models to add.
 
     ![Comparison of Results subprogram starts with a blank canvas](images/Screenshot%202025-01-15%20150948.png)
 
 3.  Once the models are loaded, it will show a summary of each in the main window. If comparing results of a sensitivity analysis, each file will be annotated with the sensitivity conditions.
 
-    ![Examples of comparing 3 files from a sensitivity analysis](images/Screenshot%202025-01-15%20094138.png)
+    ![Examples of comparing 5 scenarios from a sensitivity analysis](images/Screenshot 2025-02-26 102923.png)
 
 4.  The results menu is the same as for the Metapopulation model, but it will show all of the selected models instead of a single trajectory. You can click the Text tab to view or save the simulated abundance for each scenario. For each simulation, we copied the results into a .txt file so that they could be read into R.
 
