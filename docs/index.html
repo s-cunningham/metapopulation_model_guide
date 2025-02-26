@@ -237,7 +237,7 @@ window.Quarto = {
 <figcaption>Maxima tab of CONFIG subprogram</figcaption>
 </figure>
 </div></li>
-<li><p>Now we need we save the correct file path so that the changes we made apply when we build the models. Go to the ‘Other’ tab. At the right of the box that says Data File Path, click on the button with three dots and navigate to the folder where you will be saving your RAMAS Models. Click Save and exit the Configuration module.</p>
+<li><p>Now we need we save the correct file path so that the changes we made apply when we build the models. Go to the ‘Other’ tab. At the right of the box that says Data File Path, click on the button with three dots and navigate to the folder where you will be saving your RAMAS Models. Click Save and exit the Configuration module. *Note: Check the manual if this is not working.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="images/Screenshot 2025-01-06 132952.png" class="img-fluid figure-img"></p>
@@ -248,9 +248,7 @@ window.Quarto = {
 </section>
 <section id="prepping-raster-files" class="level2">
 <h2 class="anchored" data-anchor-id="prepping-raster-files">2. Prepping Raster Files</h2>
-<ol type="1">
-<li>RAMAS provides the option of imported a pre-made habitat suitability layer (hereafter referred to as ‘habitat layer’), or importing individual spatial layers and calculating suitability manually. Here, we built the habitat layer in R and predicted across the study area, and will therefore only need the final predicted layer to import. We will use the <code>terra</code> package in program <code>R</code> to format the habitat layer and export it as an ASCII (pronounced ‘ask · ee’; .asc file extension) file so that it can be read in by RAMAS, though you can also prepare spatial information like this in ArcGIS Pro (ESRI) or other GIS programs.</li>
-</ol>
+<p>RAMAS provides the option of imported a pre-made habitat suitability layer (hereafter referred to as ‘habitat layer’), or importing individual spatial layers and calculating suitability manually. Here, we built the habitat layer in R and predicted across the study area, and will therefore only need the final predicted layer to import. We will use the <code>terra</code> package in program <code>R</code> to format the habitat layer and export it as an ASCII (pronounced ‘ask · ee’; .asc file extension) file so that it can be read in by RAMAS, though you can also prepare spatial information like this in ArcGIS Pro (ESRI) or other GIS programs. An example of how a habitat suitability layer could be produced using R is provided below:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(terra)</span>
@@ -260,7 +258,7 @@ window.Quarto = {
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>ms_full <span class="ot">&lt;-</span> <span class="fu">vect</span>(<span class="st">"data/landscape_data/mississippi.shp"</span>) </span>
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Load point locations</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/location_data/pig_locations.csv"</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>dat <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">"data/location_data/gps_locations.csv"</span>)</span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Load habitat rasters (90x90 m resolution)</span></span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>layers <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"data/habitat1.tif"</span>, <span class="st">"data/habitat2.tif"</span>)</span>
@@ -270,17 +268,17 @@ window.Quarto = {
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>rsf <span class="ot">&lt;-</span> <span class="fu">glmer</span>(used <span class="sc">~</span> habitat1 <span class="sc">+</span> habitat2 <span class="sc">+</span> (<span class="dv">1</span><span class="sc">|</span>ID), <span class="at">data=</span>dat, </span>
 <span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>             <span class="at">family=</span><span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">"logit"</span>))</span>
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="do">#### Now we will predict habitat selection across the entire state of Mississippi</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="do">#### Now we will predict habitat selection across the raster layers</span></span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># If you want 95% confidence intervals, skip this part and go to the section below</span></span>
 <span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">predict</span>(layers, rsf, <span class="at">type=</span><span class="st">"response"</span>, <span class="at">re.form =</span> <span class="cn">NA</span>)</span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Make template raster (what you want the final resolution to be)</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Make template raster (what you want the final resolution to be - here, we use 1000 m)</span></span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>temp_rast <span class="ot">&lt;-</span> <span class="fu">rast</span>(<span class="fu">ext</span>(ms_full), <span class="at">resolution=</span><span class="dv">1000</span>) </span>
 <span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Resample to resolution of template raster</span></span>
 <span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">resample</span>(pred, temp_rast)</span>
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="co"># Mask and crop so that there are as few extra lines of no data/outside study area as possible (in this case, ms_full is a SpatVector of Mississippi)</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="co"># Mask and crop the predicted output so that there are as few extra lines of no data or data outside the study area as possible using vector information</span></span>
 <span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">mask</span>(pred, ms_full)</span>
 <span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">crop</span>(pred, <span class="fu">ext</span>(ms_full))</span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
@@ -301,7 +299,7 @@ window.Quarto = {
 <span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a><span class="do">#### Predicting habitat suitability with uncertainty </span></span>
 <span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a><span class="co"># (mean + 95% confidence intervals for predictions)</span></span>
 <span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a><span class="co"># We need to change our approach here to obtain uncertainty values. When we are predicting from a binomial GLM/GLMM and include type="response" in predict(), predict() converts the reponse to predicted probabilities. However, if we incluse se.fit=TRUE, this conversion is not done for the standard error values, which are instead returned on the log-odds scale. We deal with this by predicting both the mean predicted value and SE on the log-odds scale, calculate the 95% CI, and then transforming all three values (mean lower CI, upper CI) tothe probability scale.  </span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a><span class="co"># We need to change our approach here to obtain uncertainty values. When we are predicting from a binomial GLM/GLMM and include type="response" in predict(), predict() converts the reponse to predicted probabilities. However, if we include se.fit=TRUE, this conversion is not done for the standard error values, which are instead returned on the log-odds scale. We deal with this by predicting both the mean predicted value and SE on the log-odds scale, calculate the 95% CI, and then transforming all three values (mean lower CI, upper CI) tothe probability scale.  </span></span>
 <span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Another issue that we run into is that with large rasters, calculating SE will crash R. A workaround is to generate point locations at the center of each raster cell (in ArcGIS Pro, for example), and then assign the raster values to each point. </span></span>
 <span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a></span>
@@ -325,7 +323,7 @@ window.Quarto = {
 <span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>         <span class="at">uci=</span>boot<span class="sc">::</span><span class="fu">inv.logit</span>(fit <span class="sc">+</span> (<span class="fl">1.96</span> <span class="sc">*</span> se.fit))) <span class="sc">%&gt;%</span></span>
 <span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">fit=</span>boot<span class="sc">::</span><span class="fu">inv.logit</span>(fit)) </span>
 <span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a><span class="co"># Add calculated/transformed values to the points SpatVector object to associate predictions/uncertainty with spatial locations</span></span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a><span class="co"># Add calculated/transformed values to the points vector object to associate predictions/uncertainty with spatial locations</span></span>
 <span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>pts<span class="sc">$</span>fit <span class="ot">&lt;-</span> pigs_se<span class="sc">$</span>fit</span>
 <span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>pts<span class="sc">$</span>lci <span class="ot">&lt;-</span> pigs_se<span class="sc">$</span>lci</span>
 <span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a>pts<span class="sc">$</span>uci <span class="ot">&lt;-</span> pigs_se<span class="sc">$</span>uci</span>
@@ -336,7 +334,7 @@ window.Quarto = {
 <span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a><span class="co"># Write shapefile</span></span>
 <span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a><span class="fu">writeVector</span>(pts, <span class="st">"data/landscape_data/pigs_pts_se.shp"</span>, <span class="at">overwrite=</span><span class="cn">TRUE</span>)</span>
 <span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a><span class="co"># After writing the shapefile, open it in ArcGIS and used the Point to Raster tool (in Converstion Tools) to convert the point file to a raster for each column of the pts file. </span></span>
+<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a><span class="co"># After writing the shapefile, open it in ArcGIS and used the Point to Raster tool (in Conversion Tools) to convert the point file to a raster for each column of the pts file. </span></span>
 <span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a><span class="co"># Then, read the converted rasters back into R</span></span>
 <span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a>pigs_uci <span class="ot">&lt;-</span> <span class="fu">rast</span>(<span class="st">"data/predictions/pigs_glmm_rsf_UpperCI.tif"</span>)</span>
@@ -385,16 +383,14 @@ window.Quarto = {
 <span id="cb1-131"><a href="#cb1-131" aria-hidden="true" tabindex="-1"></a><span class="do">## Save mean, LCI, and UCI rasters as .asc files for import into RAMAS</span></span>
 <span id="cb1-132"><a href="#cb1-132" aria-hidden="true" tabindex="-1"></a><span class="fu">writeRaster</span>(pigs_uci, <span class="st">"data/predictions/pigs_glmm_rsf_UpperCI.asc"</span>,<span class="at">NAflag=</span><span class="sc">-</span><span class="dv">9999</span>, <span class="at">overwrite=</span><span class="cn">TRUE</span>)</span>
 <span id="cb1-133"><a href="#cb1-133" aria-hidden="true" tabindex="-1"></a><span class="fu">writeRaster</span>(pigs_lci, <span class="st">"data/predictions/pigs_glmm_rsf_LowerCI.asc"</span>,<span class="at">NAflag=</span><span class="sc">-</span><span class="dv">9999</span>, <span class="at">overwrite=</span><span class="cn">TRUE</span>)</span>
-<span id="cb1-134"><a href="#cb1-134" aria-hidden="true" tabindex="-1"></a><span class="fu">writeRaster</span>(pigs_mean, <span class="st">"data/predictions/pigs_glmm_rsf_FINALFINALFINALFINAL.asc"</span>,<span class="at">NAflag=</span><span class="sc">-</span><span class="dv">9999</span>, <span class="at">overwrite=</span><span class="cn">TRUE</span>)</span>
+<span id="cb1-134"><a href="#cb1-134" aria-hidden="true" tabindex="-1"></a><span class="fu">writeRaster</span>(pigs_mean, <span class="st">"data/predictions/pigs_glmm_rsf.asc"</span>,<span class="at">NAflag=</span><span class="sc">-</span><span class="dv">9999</span>, <span class="at">overwrite=</span><span class="cn">TRUE</span>)</span>
 <span id="cb1-135"><a href="#cb1-135" aria-hidden="true" tabindex="-1"></a><span class="co"># Additionally save mean predictions as .tif for plotting if desired. This raster should be more or less the same as the pred raster, but note that values might be a little different due to scaling</span></span>
-<span id="cb1-136"><a href="#cb1-136" aria-hidden="true" tabindex="-1"></a><span class="fu">writeRaster</span>(pigs_mean, <span class="st">"data/predictions/pigs_glmm_rsf_FINALFINALFINALFINAL.tif"</span>, <span class="at">overwrite=</span><span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb1-136"><a href="#cb1-136" aria-hidden="true" tabindex="-1"></a><span class="fu">writeRaster</span>(pigs_mean, <span class="st">"data/predictions/pigs_glmm_rsf.tif"</span>, <span class="at">overwrite=</span><span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="determine-suitability-thresholds" class="level2">
 <h2 class="anchored" data-anchor-id="determine-suitability-thresholds">3. Determine suitability thresholds</h2>
-<ol type="1">
-<li>Now that we’ve created a habitat layer, we need to determine the threshold that we will consider “core” habitat. We recommend doing this in the same R session as creation of the habitat layer. Hold on to this value, we will need in RAMAS Spatial Data.</li>
-</ol>
+<p>Now that we’ve created a habitat layer, we need to determine the threshold that we will consider “core” habitat. We recommend doing this in the same R session as creation of the habitat layer. Hold on to this value, we will need in RAMAS Spatial Data. An example of how this could be extracted is:</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set up data frame with limited columns (don't need the habitat values we extracted earlier)</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>pig_test <span class="ot">&lt;-</span> dat <span class="sc">%&gt;%</span> <span class="fu">select</span>(PigID,used,X,Y)</span>
@@ -446,8 +442,8 @@ window.Quarto = {
 <ul>
 <li>Add a <strong>title</strong> (e.g., ‘Pigs template’) and optionally any <strong>comments</strong>.</li>
 <li>Leave Map features blank.</li>
-<li>Change the <strong>number of replications</strong> - this is the number of times the population will be simulated, and if incorporating stochasticity there should be multiple replications, but if no stochasticity will be incorporated into the final model, leaves as 1.</li>
-<li>Set the <strong>Duration</strong> (number of time steps) you wish the simulation to be projected.</li>
+<li>Change the <strong>number of replications</strong> - this is the number of times the population will be simulated, and if incorporating stochasticity there should be multiple replications, but if no stochasticity will be incorporated into the final model, leaves as 1. We set this to 5000.</li>
+<li>Set the <strong>Duration</strong> (number of time steps) you wish the simulation to be projected. In our case, we projected the population over 10 years.</li>
 <li>Enter a value to specify the interval of a <strong>time step</strong>. You can select from the drop-down to change time steps to have values of months, days, or years (default). In our case, we want a timestep equal to 1 year, so we enter 1 in the box. Hit ok to close the menu.</li>
 </ul></li>
 <li>Next, open the Stages menu. This is where we tell RAMAS about the population structure
@@ -464,14 +460,14 @@ window.Quarto = {
 <li><p><strong>Exclude:</strong> Switching to ‘Yes’ will exclude that particular stage from the population total. Otherwise, all stages are summed when calculating abundance.</p></li>
 <li><p><strong>Basis for DD:</strong> Carrying capacity will be calculated based on stages marked as ‘Yes’, and thus could be used to model competition for territories.</p></li>
 <li><p><strong>Breeding:</strong> The breeding column is to indicate the <em>proportion of each class that is physically/physiologically capable of breeding</em>, <em>not</em> <em>the proportion of individuals that typically breed in a given year</em> (which should be incorporated into fecundity values). This value ranges 0-1, and any stage with a fecundity should have a value &gt;0 in the Breeding column. Because pigs can reach sexual maturity by 5 or 6 months, we entered a value of 0.5 for piglets.</p></li>
-<li><p>Close the Stages menu.</p></li>
+<li><p>Click OK to close the Stages menu.</p></li>
 </ul></li>
 <li>Open the Sex Structure menu
 <ul>
 <li><p>The Sex Structure menu tells RAMAS how you are modeling populations. The default is a females-only model.</p></li>
 <li><p>Determine from the list which best represents your population. In our study, we selected <strong>Both males and females, in separate stages</strong>.</p></li>
 <li><p>Because we selected the option with both males and females, we need to specify the number of female stages. As noted in the program, we usually have the same number of male and female stages (but often vital rates may vary between sexes). Here, we had 3 stages for females (pigs, yearlings, and adults) because we had 6 total stages.</p></li>
-<li><p>We also need to specify the mating system because we have both males and females in our model. We selected polygynous for pigs, and we assume that males can have unlimited partners (i.e., they can mate with any receptive female they come across). Click OK to close the Sex Structure menu.</p>
+<li><p>We also need to specify the mating system because we have both males and females in our model. We selected polygynous for pigs, and we assume that males can have unlimited partners (i.e., they can mate with any receptive female they come across). Click OK to save and close the Sex Structure menu.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="images/Screenshot 2025-01-14 102304-01.png" class="img-fluid figure-img"></p>
@@ -496,8 +492,8 @@ window.Quarto = {
 <figcaption>Stage matrix menu for a model including both males and females</figcaption>
 </figure>
 </div></li>
-<li><p>We need to add constraints for RAMAS to accound for vital rates properly. Click on Constraints and then Auto Fill.</p></li>
-<li><p>Click OK to exit the Stage Matrix menu</p></li>
+<li><p>We need to add constraints for RAMAS to account for vital rates properly. Click on Constraints and then Auto Fill and click OK to save and exit.</p></li>
+<li><p>Click OK to save and exit the Stage Matrix menu</p></li>
 </ul></li>
 <li>Open the Standard Deviation Matrix menu
 <ul>
@@ -509,9 +505,9 @@ window.Quarto = {
 <figcaption>Auto Fill dialog box of Standard Deviation Matrix menu</figcaption>
 </figure>
 </div></li>
-<li><p>Click OK to close Auto Fill, then OK again to close the Standard Deviation Matrix menu.</p></li>
+<li><p>Click OK to close Auto Fill, then OK again to save and close the Standard Deviation Matrix menu.</p></li>
 </ul></li>
-<li>Stochasticity menu: We did not add this to our model because stochasticity was already incorporated as uncertainty in vital rates and we have a relatively stable population of pigs across the state. In other words, we are not trying to model extinction or explosion, so we were OK with accepting the defaults here.</li>
+<li>Stochasticity menu: We did not add this to our model because stochasticity was already incorporated as uncertainty in vital rates and we have a relatively stable population of pigs across the state. In other words, we are not trying to model extinction or explosion, so we were OK with accepting the defaults here. However, if you want to incorporate these sorts of dynamics this would be the place to do so.</li>
 <li>Catastrophes menu: The catastrophes menu is for incorporating rare, devastating effects (e.g., hurricane or wildfire). There is the option to specify two catastrophes and control how they affect the population. For our study, our species is not subject to major catastrophic events, so we did not incorporate catastrophes.</li>
 <li>Save the metapopulation file (e.g., pigs_template.mp) by clicking on File &gt; Save. Note that the main screen has been populated with the values you entered (including replications, number of stages, density dependence, etc.). Close the Metapopulation subprogram.</li>
 </ol>
@@ -531,7 +527,7 @@ window.Quarto = {
 <li><p>Go to Model &gt; Input maps to load habitat layers</p>
 <ul>
 <li>Click <strong>Add</strong>, which will population the ‘Maps:’ section with ‘Map 1’.</li>
-<li>You can change the <strong>name</strong> of Map 1 to something more informative, such as PigFinal</li>
+<li>You can change the <strong>name</strong> of Map 1 to something more informative, such as PigMeanHSI</li>
 <li>In the line that says <strong>File:</strong>, click on the button with three dots and navigate to the folder with your habitat layer. You may need change the filetype (in the bottom right )to All files (*<em>.*</em>) in order to see available .asc files. Select the habitat layer you want to import and click OK.</li>
 <li><strong>Format</strong> will automatically population (it should read ARC/INFO if you’ve read in an ASCII file).</li>
 <li>Click on the <strong>View</strong> button (bottom left corner of Input Maps menu). This will show you a preview of your habitat layer, and it will give you a warning if the entire raster is unable to load. In that case, you will need to go back and readjust the RAMAS configuration to increase the number of rows or columns.</li>
@@ -543,8 +539,8 @@ window.Quarto = {
 <li><p>This section controls how RAMAS delineates the patches. It is possible to upload habitat layers and specify a <strong>suitability function</strong> within RAMAS; however, the modeling capabilities are limited. Thus, we imported the raster generated from resource selection modeling, but still need to specify a function for habitat suitability. In this case, it is just the imported layer * 1. Note that the name of the habitat layer must be in square brackets. Do not include and equal sign (=).</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="images/Screenshot 2025-01-28 155250.png" class="img-fluid figure-img"></p>
-<figcaption>Settings for mapping pig predicted core patches</figcaption>
+<p><img src="images/Screenshot 2025-02-26 095113.png" class="img-fluid figure-img"></p>
+<figcaption>Settings for mapping pig core patches</figcaption>
 </figure>
 </div></li>
 <li><p>The <strong>habitat suitability threshold for patches</strong> is the suitability value that RAMAS will use to convert the continuous habitat layer into a binary patch map, while everything below the threshold becomes “matrix”, or unsuitable habitat. This should be determined as part of the habitat suitability modeling process in R, or using other criteria.</p></li>
@@ -555,31 +551,31 @@ window.Quarto = {
 <li><p>Go to Model &gt; Link to metapopulation. This menu is where we connect the template metapopulation to the habitat patches.</p>
 <ul>
 <li><p>There are two tabs: General and Catastrophes. Most of the information will be contained in the General tab.</p></li>
-<li><p>The first option allows us to specify a function that will determine <strong>carrying capacity</strong> for each patch and the overall study map. RAMAS has four patch variables built in (p.&nbsp;16): total patch suitability (<code>ths</code>), average patch suitability (<code>ahs</code>), number of cells in the patch (<code>noc</code>), and the length of the patch perimeter (<code>per</code>). Thus, these can be used to adjust the population parameters according to patch attributes. The RAMAS manual (p.&nbsp;28) describes functions that can be used to incorporate these variables (beyond simple mathematics). In our model, we wanted to set the greatest suitability to reflect a density of 8 wild pigs/km<sup>2</sup>, and reduce the density as suitability decreased. Thus, we multiply 8 wild pigs/km<sup>2</sup> by <code>ths</code>. Note: our habitat layer is a 1 km<sup>2</sup> grid, so we can use 8 wild pigs in the calculation. However, if we had a coarser grid, say 1.5 x 1.5 km (2.25 km<sup>2</sup>), we would need to account for this in density (e.g., 18 pigs per 2.25 km<sup>2</sup> grid cell).</p>
+<li><p>The first option allows us to specify a function that will determine <strong>carrying capacity</strong> for each patch and the overall study map. RAMAS has four patch variables built in (p.&nbsp;16 in the RAMAS user guide): total patch suitability (<code>ths</code>), average patch suitability (<code>ahs</code>), number of cells in the patch (<code>noc</code>), and the length of the patch perimeter (<code>per</code>). Thus, these can be used to adjust the population parameters according to patch attributes. The RAMAS manual (p.&nbsp;28) describes functions that can be used to incorporate these variables (beyond simple mathematics). In our model, we wanted to set the greatest suitability to reflect a density of 8 wild pigs/km<sup>2</sup>, and reduce the density as suitability decreased. Thus, we multiply 8 wild pigs/km<sup>2</sup> by <code>ths</code>. Note: our habitat layer is a 1 km<sup>2</sup> grid, so we can use 8 wild pigs in the calculation. However, if we had a coarser grid, say 1.5 x 1.5 km (2.25 km<sup>2</sup>), we would need to account for this in density (e.g., 18 pigs per 2.25 km<sup>2</sup> grid cell).</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="images/Screenshot 2025-02-06 094916.png" class="img-fluid figure-img"></p>
 <figcaption>Link to Metapopulation menu for wild pigs in Mississippi</figcaption>
 </figure>
 </div></li>
-<li><p>The <strong>maximum growth</strong> rate (<em>R<sub>max</sub>)</em> is a tricky parameter. It represented the maximum finite rate of increase (often represented as 𝜆) for a population, when the population is not experiencing effects of density dependence. This value must be &gt;1 even if the population being modeled is expected to decrease. We looked for population modeling studies in the literature that estimated 𝜆 and used the highest as a starting point, but note that this has implications for the strength of density dependence when incorporated into a metapopulation model.</p></li>
-<li><p>Next, we need to specify an <strong>initial abundance</strong> for each patch. Giving just an integer will assign this value to every patch, regardless of size or carrying capacity. RAMAS allows for functions to determine initial abundance, similar to carrying capacity, to adjust for overall patch suitability, size, etc. The default given in the manual is <code>noc</code> * 1.2 - <code>per</code> * 0.1, which incorporates the number of cells and the length of the patch perimeter in determining the initial abundance. We edited this function to be (<code>noc</code> * density * <code>ahs</code>) - <code>per</code> * 0.1, where density is 8 wild pigs/km<sup>2</sup>.</p></li>
+<li><p>The <strong>maximum growth</strong> rate (<em>R<sub>max</sub>)</em> is a tricky parameter. It represented the maximum finite rate of increase (often represented as 𝜆) for a population, when the population is not experiencing effects of density dependence. This value must be &gt;1 even if the population being modeled is expected to decrease. We looked for population modeling studies in the literature that estimated 𝜆 and used the highest as a starting point, but note that this has implications for the strength of density dependence when incorporated into a metapopulation model. The RAMAS user guide provides some context.</p></li>
+<li><p>Next, we need to specify an <strong>initial abundance</strong> for each patch. Giving just an integer will assign this value to every patch, regardless of size or carrying capacity. RAMAS allows for functions to determine initial abundance, similar to carrying capacity, to adjust for overall patch suitability, size, etc. The default given in the manual is <code>noc</code> * 1.2 - <code>per</code> * 0.1, which incorporates the number of cells and the length of the patch perimeter in determining the initial abundance. We edited this function to be (<code>noc</code> * 8 * <code>ahs</code>) - <code>per</code> * 0.1, where 8 is the density of wild pigs/km<sup>2</sup>.</p></li>
 <li><p>Similarly, we can adjust vital rates according to suitability values in each patch by specifying functions in the <strong>Relative fecundity</strong> and <strong>Relative survival</strong> options. For this model, we maintained all survival and fecundities equal to 1 (i.e., all the same).</p></li>
 <li><p>We do the actual linking to the template metapopulation file in the <strong>Other data from</strong> option. Click on the button with three dots. Navigate to and select the metapopulation file you created in section 3: <a href="#set-template-demographic-parameters-in-ramas-metapopulation">4. Set template demographic parameters in RAMAS Metapopulation</a></p></li>
 <li><p>The final parameter that can be edited in this menu is for <strong>Distances</strong>. This will tell RAMAS how to calculate the distances between patches, with the options being edge to edge, center to center, or center to edge. We selected Edge to edge.</p></li>
 <li><p>Before closing the menu, one can specify local multipliers and probabilities for catastrophes under the <strong>Catastrophes</strong> tab. We did not have any catastrophes that needed to be adjusted spatially, so we left these blank.</p></li>
-<li><p>Click OK to close the window.</p></li>
+<li><p>Click OK to save and close the window.</p></li>
 </ul></li>
 <li><p>Go to Model &gt; Default population</p>
 <ul>
 <li>There are three tabs in the Default population menu: General, Density Dependence, and Catastrophes. Again, we left the Catastrophes tab blank, as we were not incorporating these into our model.</li>
-<li>The General tab shows several parameters, but most are calculated by RAMAS or specified in the Link to Metapopulation tab. Only the <strong>Local threshold</strong> parameter is available for editing, which can be used to specify patches that are included in the summation of abundance when running the metapopulation model. We set this to 5.</li>
-<li>The Density Dependence tab will allow us to assign parameters for density dependence. We set the <strong>Density dependence type</strong> to Scramble so that this would be applied to all populations generated with patches. We also incorporated some environmental stochasticity by setting <strong>Standard deviation of K</strong> to 1000. We left the remaining parameters as default (usually 0).</li>
+<li>The General tab shows several parameters, but most are calculated by RAMAS or specified in the Link to Metapopulation tab. Only the <strong>Local threshold</strong> parameter is available for editing, which can be used to specify patches that are included in the summation of abundance when running the metapopulation model. We set this to 5, assuming that most populations would need more individuals to persist.</li>
+<li>The Density Dependence tab will allow us to assign parameters for density dependence. We set the <strong>Density dependence type</strong> to Scramble so that this would be applied to all populations generated with patches. We also incorporated some environmental stochasticity by setting <strong>Standard deviation of K</strong> to 1000, but can be changed to include more or less stochasticity. We left the remaining parameters as default (usually 0).</li>
 <li>Click OK to save and exit this menu.</li>
 </ul></li>
 <li><p>Go to Model &gt; Dispersal</p>
 <ul>
-<li>The Dispersal menu will allow us to specify a function that controls how far animals disperse between habitat patches, which will calculate dispersal rates for the metapopulation. There are four parameters: <strong><em>a</em></strong>, <strong><em>b</em></strong>, <strong><em>c</em></strong>, and <strong><em>D<sub>max</sub></em></strong>. It is unclear what these all represent, but the manual (p.&nbsp;31) recommends setting <strong><em>a</em></strong> and <strong><em>c</em></strong> to 1 so that the dispersal function simplifies to a negative exponential. We then specified <strong><em>b</em></strong> as 5 km, the average natal dispersal fo wild pigs, and <strong><em>D<sub>max</sub></em></strong> as 65 km, which we determined from the literature was on the upper limit of wild pig dispersal distances.</li>
+<li>The Dispersal menu will allow us to specify a function that controls how far animals disperse between habitat patches, which will calculate dispersal rates for the metapopulation. There are four parameters: <strong><em>a</em></strong>, <strong><em>b</em></strong>, <strong><em>c</em></strong>, and <strong><em>D<sub>max</sub></em></strong>. It is unclear what these all represent, but the manual (p.&nbsp;31) recommends setting <strong><em>a</em></strong> and <strong><em>c</em></strong> to 1 so that the dispersal function simplifies to a negative exponential. We then specified <strong><em>b</em></strong> as 5.0 to represent 5 km, the average natal dispersal for wild pigs, and <strong><em>D<sub>max</sub></em></strong> as 65 km, which we determined from the literature was on the upper limit of wild pig dispersal distances.</li>
 <li>The View Function button will only show results after RAMAS has found <span class="math inline">\(\geq\)</span> 2 patches.</li>
 <li>Click OK to save and close the menu.</li>
 </ul></li>
@@ -615,10 +611,10 @@ window.Quarto = {
 <section id="export-results-and-metapop-file-from-spatial-data-module" class="level2">
 <h2 class="anchored" data-anchor-id="export-results-and-metapop-file-from-spatial-data-module">7. Export Results and Metapop file from Spatial Data module</h2>
 <ol type="1">
-<li>It is helpful to export two things after calculating the patches: patch map (helpful for visualizations/manuscript figures) and a Metapopulation file (necessary for continuing the process). Both of these can be accomplished by going to the File menu in the main Spatial Data program screen.
+<li>It is helpful to export two things after calculating the patches: patch map (helpful for visualizations/manuscript figures) and a Metapopulation file (necessary for continuing the process). Both of these can be accomplished by going to:
 <ul>
-<li>Go to File &gt; <strong>Save RAMAS Metapop file…</strong> Navigate to the desired folder and provide a file name, then click Save.</li>
-<li>Go to File &gt; <strong>Export patch map…</strong> Navigate to the desired folder and provide a file name, then click Save. Note that this will write an ASCII (.asc) file, that can be read into ArcGIS Pro and R and converted to a .tif or other file format.</li>
+<li>File &gt; <strong>Save RAMAS Metapop file…</strong> Navigate to the desired folder and provide a file name, then click Save.</li>
+<li>File &gt; <strong>Export patch map…</strong> Navigate to the desired folder and provide a file name, then click Save. Note that this will write an ASCII (.asc) file, that can be read into ArcGIS Pro and R and converted to a .tif or other file format.</li>
 </ul></li>
 </ol>
 <div class="quarto-figure quarto-figure-center">
@@ -659,7 +655,7 @@ window.Quarto = {
 </figure>
 </div></li>
 <li><p>When incorporating density dependence, there will sometimes be a warning message that the stage matrix is possibly inconsistent. This is not an error, and may occur when density dependence adjust the growth rate so that it is different from what would be due to the population matrix alone. Click the red question mark button for the Help file for more information.</p></li>
-<li><p>After the simulation has completed, close the window.</p></li>
+<li><p>After the simulation has completed, close the window by clicking the X in the upper right-hand corner. There is no option to save here, the simulation results can be saved from the main Metapopulation program window. If incorporating this simulation in a sensitivity analysis below, the Sensitivity Analysis program will re-run the simulations.</p></li>
 </ul></li>
 <li><p>Results can be viewed under the Results tab, similar to how we viewed the results from RAMAS Spatial Data.</p>
 <ul>
@@ -734,9 +730,8 @@ window.Quarto = {
 <figcaption>Sensitivity analysis for wild pigs in MS</figcaption>
 </figure>
 </div></li>
-<li><p>Click OK to close the window.</p></li>
+<li><p>Click OK to save and close the window.</p></li>
 </ul></li>
-<li><p>You can also set up different scenarios in Metapopulation, and load them into Sensitivity Analysis by going to Models &gt; Manual and selecting the desired files.</p></li>
 <li><p>Go to Simulation &gt; Run</p>
 <ul>
 <li><p>RAMAS will give you a dialog box specifying which scenario will be saved to which file. This cannot be edited. Click OK to run the simulations. It will open new simulation windows as the models run.</p>
@@ -755,7 +750,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="comparing-simulation-results">10. Comparing simulation results</h2>
 <ol type="1">
 <li><p>The RAMAS Comparison of Results subprogram allows you to import models from the Metapopulation subprogram to visualize and compare results of different scenarios. The comparison of results subprogram can take any Metapop model, not necessarily from sensitivity analysis.</p></li>
-<li><p>If you open the Comparison of Results subprogram after running a sensitivity analysis, it should automatically load the models generated by Sensitivity Analysis. However, you can add files manually (e.g., if just comparing different models that were created using Metapopulation and not Sensitivity Analysis). Click on the Open symbol to select files. You will need to click Add to navigate and select models to add.</p>
+<li><p>If you open the Comparison of Results subprogram after running a sensitivity analysis, it should automatically load the models generated by Sensitivity Analysis. However, you can add files manually (e.g., if just comparing different models that were created using Metapopulation and not Sensitivity Analysis, such as core, marginal, and highly marginal patch models). Click on the Open symbol to select files. You will need to click Add to navigate and select models to add.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="images/Screenshot 2025-01-15 150948.png" class="img-fluid figure-img"></p>
@@ -765,8 +760,8 @@ window.Quarto = {
 <li><p>Once the models are loaded, it will show a summary of each in the main window. If comparing results of a sensitivity analysis, each file will be annotated with the sensitivity conditions.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="images/Screenshot 2025-01-15 094138.png" class="img-fluid figure-img"></p>
-<figcaption>Examples of comparing 3 files from a sensitivity analysis</figcaption>
+<p><img src="images/Screenshot 2025-02-26 102923.png" class="img-fluid figure-img"></p>
+<figcaption>Examples of comparing 5 scenarios from a sensitivity analysis</figcaption>
 </figure>
 </div></li>
 <li><p>The results menu is the same as for the Metapopulation model, but it will show all of the selected models instead of a single trajectory. You can click the Text tab to view or save the simulated abundance for each scenario. For each simulation, we copied the results into a .txt file so that they could be read into R.</p>
