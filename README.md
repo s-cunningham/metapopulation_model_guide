@@ -2,6 +2,6 @@
 
 This presents the workflow for Cunningham et al. in prep, looking at habitat suitability and metapopulation modeling of white-tailed deer and wild pigs in Mississippi.
 
-No data are provided. 
+No data are provided. Manuscript currently in preparation.
 
 
