@@ -30,7 +30,7 @@ ix. Plotting patches and converting ASCII patch file to .tif (R & ArcGIS Pro)
 
 ## 2. Prepping Raster Files
 
-RAMAS provides the option of imported a pre-made habitat suitability layer (hereafter referred to as 'habitat layer'), or importing individual spatial layers and calculating suitability manually. Here, we built the habitat layer in R and predicted across the study area, and will therefore only need the final predicted layer to import. We will use the `terra` package in program `R` to format the habitat layer and export it as an ASCII (pronounced 'ask · ee'; .asc file extension) file so that it can be read in by RAMAS, though you can also prepare spatial information like this in ArcGIS Pro (ESRI) or other GIS programs. An example of how a habitat suitability layer could be produced using R is provided below:
+RAMAS provides the option of imported a pre-made habitat suitability layer (hereafter referred to as 'habitat layer'), or importing individual spatial layers and calculating suitability manually. Here, we built the habitat layer in R and predicted across the study area, and will therefore only need the final predicted layer to import. We will use the `terra` package in program `R` to format the habitat layer and export it as an ASCII (pronounced 'ask · ee'; .asc file extension) file so that it can be read in by RAMAS, though you can also prepare spatial information like this in ArcGIS Pro (ESRI) or other GIS programs. Some code for manipulating a raster to resample, crop, apply a linear stretch is below, but the full code used is available on figshare (DOI: 10.6084/m9.figshare.28628264).
 
 ```{r}
 #| eval: false
@@ -38,26 +38,13 @@ library(tidyverse)
 library(terra)
 library(lme4)
 
-# Load polygon of study area
-ms_full <- vect("data/landscape_data/mississippi.shp") 
+# Load raster with predicted resource selection function
+pred <- rast("data/predicted_resource_selection.tif")
 
-# Load point locations
-dat <- read_csv("data/location_data/gps_locations.csv")
-
-# Load habitat rasters (90x90 m resolution)
-layers <- c("data/habitat1.tif", "data/habitat2.tif")
-layers <- rast(layers)
-
-# Run resource selection function. This model assumes we have a data frame called 'dat' that has a column of 0s (available) and 1s (used) in the 'used' column. Each row has extracted landscape data, in columns 'habitat1' and 'habitat2', which were extracted from rasters now stored in 'layers'
-rsf <- glmer(used ~ habitat1 + habitat2 + (1|ID), data=dat, 
-             family=binomial(link = "logit"))
-
-#### Now we will predict habitat selection across the raster layers
-# If you want 95% confidence intervals, skip this part and go to the section below
-pred <- predict(layers, rsf, type="response", re.form = NA)
-
-# Make template raster (what you want the final resolution to be - here, we use 1000 m)
-temp_rast <- rast(ext(ms_full), resolution=1000) 
+# Make template raster (what you want the final resolution to be - here, we use 90 m)
+# Note that sometimes resampling and reprojecting rasters results in cells having slightly different length/width
+# for example, 90.0000647, 90.0000935...even with these incredibly small differences, RAMAS will not run!! 
+temp_rast <- rast(ext(state_outline), resolution=90) 
 
 # Resample to resolution of template raster
 pred <- resample(pred, temp_rast)
@@ -79,145 +66,11 @@ writeRaster(pred, "data/predictions/rsf_FINAL.tif")
 # Write ASCII file
 writeRaster(pred, "data/predictions/rsf_FINAL.asc", NAflag=-9999)
 # Note: include the argument overwrite=TRUE in writeRaster() to rewrite over the old file if you need to rerun something.
-
-#### Predicting habitat suitability with uncertainty 
-# (mean + 95% confidence intervals for predictions)
-
-# We need to change our approach here to obtain uncertainty values. When we are predicting from a binomial GLM/GLMM and include type="response" in predict(), predict() converts the reponse to predicted probabilities. However, if we include se.fit=TRUE, this conversion is not done for the standard error values, which are instead returned on the log-odds scale. We deal with this by predicting both the mean predicted value and SE on the log-odds scale, calculate the 95% CI, and then transforming all three values (mean lower CI, upper CI) tothe probability scale.  
-
-# Another issue that we run into is that with large rasters, calculating SE will crash R. A workaround is to generate point locations at the center of each raster cell (in ArcGIS Pro, for example), and then assign the raster values to each point. 
-
-# Read point locations (raster cell centerpoints)
-pts <- vect("data/landscape_data/ms_masked_90m_pts.shp")
-pts <- project(pts, crs(layers))
-
-# Extract raster values at points (i.e., put the raster values into a data frame)
-pts_extr <- extract(pig_layers, pts)
-pts_extr <- pts_extr %>% select(-ID)
-
-# Predict values. Set type="link" so that everything is on the same (log-odds) scale 
-pigs_se <- predict(rsf, newdata=pts_extr, type="link", se.fit=TRUE, re.form=NA)
-
-# Create tibble for calculations
-pigs_se <- data.frame(fit=pigs_se$fit, se.fit=pigs_se$se.fit)
-
-# Calculate confidence intervals
-pigs_se <- pigs_se %>% as_tibble() %>%
-  mutate(lci=boot::inv.logit(fit - (1.96 * se.fit)),
-         uci=boot::inv.logit(fit + (1.96 * se.fit))) %>%
-  mutate(fit=boot::inv.logit(fit)) 
-
-# Add calculated/transformed values to the points vector object to associate predictions/uncertainty with spatial locations
-pts$fit <- pigs_se$fit
-pts$lci <- pigs_se$lci
-pts$uci <- pigs_se$uci
-
-## There are a couple of ways to convert the points back to a raster. Do one or the other, but not both
-
-# Option 1. Open the point file in ArcGIS and convert it to a raster
-# Write shapefile
-writeVector(pts, "data/landscape_data/pigs_pts_se.shp", overwrite=TRUE)
-
-# After writing the shapefile, open it in ArcGIS and used the Point to Raster tool (in Conversion Tools) to convert the point file to a raster for each column of the pts file. 
-
-# Then, read the converted rasters back into R
-pigs_uci <- rast("data/predictions/pigs_glmm_rsf_UpperCI.tif")
-pigs_lci <- rast("data/predictions/pigs_glmm_rsf_LowerCI.tif")
-pigs_mean <- rast("data/predictions/pigs_glmm_rsf_mean.tif")
-
-# Option 2. Convert points to raster. This is nice for the workflow, but depending on the size of your raster, is very memory-intensive
-# The second argument is a raster that matches the resolution of the pts SpatVector (i.e., 90x90)
-pigs_uci <- rasterize(pts, layers["habitat1"], field="uci", fun="mean")
-pigs_lci <- rasterize(pts, layers["habitat1"], field="lci", fun="mean")
-pigs_mean <- rasterize(pts, layers["habitat1"], field="fit", fun="mean")
-
-## Once we have prediction and CI rasters, we can continue with resampling, transforming, and cropping 
-
-# We need to crop the the raster so the extent is only as big as the study area, otherwise RAMAS will count all those cells of NAs towards your row/column limits
-pigs_uci <- mask(pigs_uci, ms_full)
-pigs_lci <- mask(pigs_lci, ms_full)
-pigs_mean <- mask(pigs_mean, ms_full)
-
-## Rescale so that suitability is on a scale of 0-1, but need everything to be on the same 0-1 scale
-# find min and max values
-max_hsi <- max(minmax(pigs_uci)[2], minmax(pigs_lci)[2], minmax(pigs_mean)[2])
-min_hsi <- min(minmax(pigs_uci)[1], minmax(pigs_lci)[1], minmax(pigs_mean)[1])
-
-# apply scaling to all three rasters
-pigs_uci <- (pigs_uci-min_hsi)/(max_hsi-min_hsi)
-pigs_lci <- (pigs_lci-min_hsi)/(max_hsi-min_hsi)
-pigs_mean <- (pigs_mean-min_hsi)/(max_hsi-min_hsi)
-
-# Mask lakes
-pigs_uci <- mask(pigs_uci, lakes, inverse=TRUE)
-pigs_lci <- mask(pigs_lci, lakes, inverse=TRUE)
-pigs_mean <- mask(pigs_mean, lakes, inverse=TRUE)
-
-# Resample to 1x1 km
-pigs_uci <- resample(pigs_uci, temp_rast)
-pigs_lci <- resample(pigs_lci, temp_rast)
-pigs_mean <- resample(pigs_mean, temp_rast)
-
-# Reclassify missing data to 0
-m <- rbind(c(NA, 0))
-pigs_uci <- classify(pigs_uci, m)
-pigs_lci <- classify(pigs_lci, m)
-pigs_mean <- classify(pigs_mean, m)
-
-## Save mean, LCI, and UCI rasters as .asc files for import into RAMAS
-writeRaster(pigs_uci, "data/predictions/pigs_glmm_rsf_UpperCI.asc",NAflag=-9999, overwrite=TRUE)
-writeRaster(pigs_lci, "data/predictions/pigs_glmm_rsf_LowerCI.asc",NAflag=-9999, overwrite=TRUE)
-writeRaster(pigs_mean, "data/predictions/pigs_glmm_rsf.asc",NAflag=-9999, overwrite=TRUE)
-# Additionally save mean predictions as .tif for plotting if desired. This raster should be more or less the same as the pred raster, but note that values might be a little different due to scaling
-writeRaster(pigs_mean, "data/predictions/pigs_glmm_rsf.tif", overwrite=TRUE)
 ```
 
 ## 3. Determine suitability thresholds
 
-Now that we've created a habitat layer, we need to determine the threshold that we will consider "core" habitat. We recommend doing this in the same R session as creation of the habitat layer. Hold on to this value, we will need in RAMAS Spatial Data. An example of how this could be extracted is:
-
-```{r}
-#| eval: false
-# Set up data frame with limited columns (don't need the habitat values we extracted earlier)
-pig_test <- dat %>% select(PigID,used,X,Y)
-
-# Extract RSF predictions at each location 
-dat_pig <- extract(pigs_mean, pig_test[,c(3:4)]) 
-
-# Add extracted values to data frame
-pig_test$rsf <- dat_pig$mean
-
-# Create a vector from 0 to 1, increasing by 0.01
-thresh <- seq(0,1,by=0.01)
-
-# Create an empty matrix, then add the threshold values to the first column
-res <- matrix(NA, ncol=3, nrow=length(thresh))
-res[,1] <- thresh
-
-# Loop over each threshold value
-for (i in 1:length(thresh)) {
-  
-  # Convert the 'used' column to a factor with levels 0 and 1
-  actu <- factor(pig_test$used, levels=c(0,1))
-  
-  # Determine whether the habitat suitability value is greater than the threshold, and set to 0 or 1
-  pred <- factor(if_else(pig_test$rsf >= thresh[i], 1, 0), levels=c(0,1))
-  
-  # Use the caret package to compare 0 and 1 values that were predicted vs actual
-  # Save sensitivity and specificity values into the matrix
-  res[i,2] <- caret::sensitivity(pred, actu)
-  res[i,3] <- caret::specificity(pred, actu)
-}
-
-# Convert matrix to data frame and rename columns
-res <- res %>% as.data.frame() 
-names(res) <- c("Threshold", "Sensitivity", "Specificity")
-# Calculate true skill statistic
-res <- res %>% mutate(TSS = Sensitivity + Specificity - 1)
-
-# Print the row that maximizes true skill statistic
-res %>% slice_max(TSS)
-```
+Now that we've created a habitat layer, we need to determine the threshold that we will consider "core" habitat. We recommend doing this in the same R session as creation of the habitat layer. Hold on to this value, we will need in RAMAS Spatial Data. A potential value can be estimated by examining quantiles of RSF values at used locations. See code on figshare for details (DOI: 10.6084/m9.figshare.28628264).
 
 ## 4. Set template demographic parameters in RAMAS Metapopulation
 
@@ -499,7 +352,7 @@ res %>% slice_max(TSS)
 
 3.  Once the models are loaded, it will show a summary of each in the main window. If comparing results of a sensitivity analysis, each file will be annotated with the sensitivity conditions.
 
-    ![Examples of comparing 5 scenarios from a sensitivity analysis](images/Screenshot 2025-02-26 102923.png)
+    ![Examples of comparing 5 scenarios from a sensitivity analysis](images/Screenshot%202025-02-26%20102923.png)
 
 4.  The results menu is the same as for the Metapopulation model, but it will show all of the selected models instead of a single trajectory. You can click the Text tab to view or save the simulated abundance for each scenario. For each simulation, we copied the results into a .txt file so that they could be read into R.
 
