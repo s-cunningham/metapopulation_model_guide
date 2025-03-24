@@ -38,6 +38,9 @@ library(tidyverse)
 library(terra)
 library(lme4)
 
+# Load shapefile with state outline
+state_outline <- vect("data/mississippi_outline.shp")
+
 # Load raster with predicted resource selection function
 pred <- rast("data/predicted_resource_selection.tif")
 
@@ -50,8 +53,8 @@ temp_rast <- rast(ext(state_outline), resolution=90)
 pred <- resample(pred, temp_rast)
 
 # Mask and crop the predicted output so that there are as few extra lines of no data or data outside the study area as possible using vector information
-pred <- mask(pred, ms_full)
-pred <- crop(pred, ext(ms_full))
+pred <- mask(pred, state_outline)
+pred <- crop(pred, ext(state_outline))
 
 # Rescale raster to be between 0 and 1
 pred <- (pred-minmax(pred)[1])/(minmax(pred)[2]-minmax(pred)[1])
@@ -235,6 +238,56 @@ Now that we've created a habitat layer, we need to determine the threshold that 
     -   File \> **Export patch map...** Navigate to the desired folder and provide a file name, then click Save. Note that this will write an ASCII (.asc) file, that can be read into ArcGIS Pro and R and converted to a .tif or other file format.
 
 ![Exporting patch map and Metapop file from Spatial Data](images/Screenshot%202024-12-16%20105241.png)
+
+#### Converting .ASC to .tif and plotting patches using ArcGIS
+
+-   The ASCII file exported from RAMAS Spatial Data can be read into ArcGIS Pro like any other raster, using Add Data and then navigating to the desired .asc file.
+-   The patch map will not have any Spatial Reference information associated it, so you must add projection data. (Data Management Tools \> Define Projection)
+-   Each patch will have a unique pixel value of the patch number.
+
+#### Converting .ASC to .tif and plotting patches using R
+
+We need to follow essentially the same steps in R, and we can do it efficiently if we have multiple patch rasters exported from RAMAS.
+
+```{r}
+#| eval: false
+library(terra)
+
+# Read in state boundary shapefile to be able to match projection
+ms <- vect("data/landscape_data/state_boundary.shp")
+
+# List patch .asc files
+patches <- list.files(path="RAMASoutput/patches/", pattern=".ASC", full.names=TRUE)  # note that the pattern argument is case-sensitive, and RAMAS writes ASCII files as .ASC instead of .asc like R
+
+# Make raster "stack"
+patches <- rast(patches)
+
+# Define projection
+crs(patches) <- crs(ms)
+
+# Shorten the names a bit (taking of "_patches")
+names(patches) <- gsub("_patches", "", names(patches))
+
+# Reclassify so that 0 becomes NA (backround is 0, patches are numbered starting with 1), and all patches receive same class value (1)
+# If you want to show different patches, don't do the second part
+# Replace 0 with NA
+patches <- ifel(patches == 0, NA_integer_, patches)
+
+# Reclassify all patches as 1
+patches <- ifel(patches>=1, 1, patches)
+
+# Loop over patches and write as .tif
+for (i in 1:dim(patches)[3]) {
+  # Subset to each layer
+  patch <- patches[[i]]
+  
+  # create filename
+  filename <- paste0("results/exported_patches/", names(patch), ".tif")
+  
+  # write raster
+  writeRaster(patch, filename, overwrite=TRUE)
+}
+```
 
 ## 8. Running the actual Metapopulation model
 
