@@ -268,7 +268,7 @@ crs(patches) <- crs(ms)
 # Shorten the names a bit (taking of "_patches")
 names(patches) <- gsub("_patches", "", names(patches))
 
-# Reclassify so that 0 becomes NA (backround is 0, patches are numbered starting with 1), and all patches receive same class value (1)
+# Reclassify so that 0 becomes NA (background is 0, patches are numbered starting with 1), and all patches receive same class value (1)
 # If you want to show different patches, don't do the second part
 # Replace 0 with NA
 patches <- ifel(patches == 0, NA_integer_, patches)
